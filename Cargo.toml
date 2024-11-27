@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "gossip",
+]
+resolver = "2"
+
+
+[workspace.package]
+version = "0.0.0"
+authors = ["Dhruvsol <me@dhruvsol.io>"]
+repository = "https://github.com/dhruvsol/hermes"
+license = "Apache-2.0"
+edition = "2021"
+
+[workspace.dependencies]
+solana-client = "2.1.2"
+solana-gossip = "2.1.2"
+solana-sdk = "2.1.2"
+solana-streamer = "2.1.2"
