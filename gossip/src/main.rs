@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    net::{SocketAddr, ToSocketAddrs},
+    net::{Ipv4Addr, SocketAddr, ToSocketAddrs},
     process::exit,
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
@@ -45,6 +45,12 @@ fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     Ok(())
+}
+
+fn create_gossip_socket() -> std::net::UdpSocket {
+    let socket = std::net::UdpSocket::bind("127.0.0.1:8001").expect("Failed to bind gossip socket");
+    socket.set_nonblocking(true).unwrap();
+    socket
 }
 
 fn main() {
@@ -93,17 +99,24 @@ fn main() {
     });
 
     let mut node = Node::new_localhost_with_pubkey(&id_pair.try_pubkey().unwrap());
+    node.info.hot_swap_pubkey(id_pair.pubkey());
     node.info.set_shred_version(shred_version);
     node.info.set_wallclock(timestamp());
-    let cluster_info = ClusterInfo::new(node.info, id_pair, SocketAddrSpace::Unspecified);
+
+    // Create an independent gossip socket
+    let gossip_socket = create_gossip_socket();
+    let gossip_addr = gossip_socket.local_addr().unwrap();
+    node.info.set_gossip(gossip_addr).unwrap();
+
+    let mut cluster_info = ClusterInfo::new(node.info, id_pair, SocketAddrSpace::new(false));
 
     let cluster_entrypoints = entrypoint_addrs
         .iter()
         .map(ContactInfo::new_gossip_entry_point)
         .collect::<Vec<_>>();
-
-    let cluster_info = Arc::new(cluster_info);
+    cluster_info.set_contact_debug_interval(120000);
     cluster_info.set_entrypoints(cluster_entrypoints);
+    let cluster_info = Arc::new(cluster_info);
     info!("Cluster info peers: {:?}", cluster_info.all_peers());
 
     let connection_cache = ConnectionCache::new_quic("connection_cache_banking_bench_quic", 1);
@@ -114,8 +127,8 @@ fn main() {
     let gossip_service = GossipService::new(
         &cluster_info,
         None,
-        node.sockets.gossip,
-        Some(gossip_validators.clone()),
+        gossip_socket, // Use the independent gossip socket here
+        None,
         true,
         None,
         exit.clone(),
