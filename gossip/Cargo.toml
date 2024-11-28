@@ -9,3 +9,6 @@ solana-gossip = {workspace = true}
 solana-net-utils = {workspace = true}
 solana-sdk = {workspace = true}
 solana-streamer = {workspace = true}
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
